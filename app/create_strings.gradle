@@ -1,0 +1,73 @@
+import groovy.json.JsonSlurper
+
+/**
+ * Таска ищет файл с текстами с названием strings.json, и для каждого текста создает переменную
+ * L.key
+ *
+ * Если файла strings.json не существует - скрипт кинет Exception.
+ *
+ * Чтобы сгенерить текста заново, достаточно перебилдить проект
+ */
+
+def filePath = project.rootProject.getProjectDir().path + "/app/src/main/assets/json"
+def outputPath = project.rootProject.getProjectDir().path + "/app/build/generated/strings"
+def inputFile = new File(filePath + "/strings.json")
+def outputFile = new File(outputPath + "/LL.kt")
+
+
+task createStrings {
+    inputs.file(inputFile)
+    outputs.file(outputFile)
+    doLast {
+
+        if (!inputFile.exists()) {
+            println("file doesn't exists, return")
+            throw RuntimeException("file ${inputFile} doesn't exists")
+        }
+
+        println("Started to create strings file, ${outputFile.path}")
+        outputFile.delete()
+        outputFile.createNewFile()
+
+        def s1 = """package com.obolonnyy.lexemator
+//<!--Этот файл создан автоматически gradle скриптом из create_strings.gradle -->
+//
+object LL {
+"""
+
+        def s2 =
+                """    
+    fun addLexems(map: Map<String, String>) {
+        map.forEach { k, v -> addLexem(k, v) }
+    }
+
+    fun addLexem(key: String, value: String) {
+        when(key) {
+"""
+
+        def json = new JsonSlurper().parse(inputFile)
+        assert json instanceof Map
+
+        json.each { entry ->
+            s1 += "    var ${entry.key} = \"\"\"${entry.value}\"\"\"\n        private set\n"
+            s2 += "            \"${entry.key}\" -> ${entry.key} = value\n"
+        }
+
+        def result = s1 + "\n\n" + s2 + """        }
+    }
+}"""
+
+        outputFile.write(result)
+    }
+}
+
+
+android {
+    sourceSets {
+        main {
+            java {
+                srcDirs += outputPath
+            }
+        }
+    }
+}
