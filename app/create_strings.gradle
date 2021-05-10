@@ -1,38 +1,50 @@
 import groovy.json.JsonSlurper
 
 /**
- * Таска ищет файл с текстами с названием strings.json, и для каждого текста создает переменную
- * L.key
+ * Таска ищет файл с текстами с названием strings.json и создает объект LL.
+ * Для каждого текста из strings.json создает переменную LL.key внутри объекта
  *
  * Если файла strings.json не существует - скрипт кинет Exception.
  *
- * Чтобы сгенерить текста заново, достаточно перебилдить проект
+ * Чтобы сгенерить текста заново, достаточно перебилдить проект, или изменить файл strings.json
  */
 
+def classFileName = "LL"
+def stringsFileName = "strings.json"
 def filePath = project.rootProject.getProjectDir().path + "/app/src/main/assets/json"
 def outputPath = project.rootProject.getProjectDir().path + "/app/build/generated/strings"
-def inputFile = new File(filePath + "/strings.json")
-def outputFile = new File(outputPath + "/LL.kt")
-
+def inputFile = new File(filePath + "/${stringsFileName}")
+def outputFile = new File(outputPath + "/${classFileName}.kt")
 
 task createStrings {
+
+    /**
+     * Если что-то изменится в inputFile, то при следующей сборке будет заново сгенерирован
+     * outputFile.
+     * Если ничего не изменилось, и outputFile уже есть, таска будет помечена "UP-TO-DATE" и
+     * не будет выполняться лишний раз.
+     */
     inputs.file(inputFile)
     outputs.file(outputFile)
-    doLast {
 
+    doLast {
         if (!inputFile.exists()) {
-            println("file doesn't exists, return")
-            throw RuntimeException("file ${inputFile} doesn't exists")
+            throw RuntimeException("файл ${inputFile} не найден")
         }
 
-        println("Started to create strings file, ${outputFile.path}")
+        println("Начало создания файла ${outputFile.path}")
         outputFile.delete()
         outputFile.createNewFile()
 
+        /**
+         * Тройные кавычки нужны для того, чтобы перевод строки (\n) в strings.json
+         * не ломал строки в созданном LL.kt файле.
+         */
         def s1 = """package com.obolonnyy.lexemator
+
 //<!--Этот файл создан автоматически gradle скриптом из create_strings.gradle -->
-//
-object LL {
+
+object ${classFileName} {
 """
 
         def s2 =
@@ -58,10 +70,14 @@ object LL {
 }"""
 
         outputFile.write(result)
+        println("файл ${outputFile.path} успешно создан.")
     }
 }
 
-
+/**
+ * Показываем, что созданный файл теперь тоже является частью проекта.
+ * Без этого мы не сможем использовать созданный LL.kt класс в своих классах.
+ */
 android {
     sourceSets {
         main {
